@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="si" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Guest Q&A Platform | ප්‍රශ්න සහ අදහස් යොමු කිරීම</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        },
+                        darkbg: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans Sinhala', 'Noto Sans Arabic', 'Noto Sans Devanagari', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Sinhala:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons & QRCode Library -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Custom Print Poster CSS Styles -->
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans Sinhala', 'Noto Sans Arabic', 'Noto Sans Devanagari', sans-serif;
+        }
+        
+        /* RTL support for Arabic */
+        [dir="rtl"] .rtl-flip {
+            transform: scaleX(-1);
+        }
+
+        /* Print Poster Styling */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #printable-poster-area, #printable-poster-area * {
+                visibility: visible !important;
+            }
+            #printable-poster-area {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                margin: 0 !important;
+                padding: 3rem !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-sizing: border-box !important;
+                z-index: 99999 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-darkbg-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Header Navigation -->
+    <header class="sticky top-0 z-40 bg-darkbg-900/90 backdrop-blur-md border-b border-slate-800 transition-colors">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/20">
+                    <i data-lucide="message-square-plus" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-tight text-white flex items-center gap-2" id="nav-title">
+                        Live Q&A Portal
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-brand-900/60 text-brand-300 border border-brand-700/50" id="mode-badge">Guest Mode</span>
+                    </h1>
+                    <p class="text-xs text-slate-400" id="nav-subtitle">ප්‍රශ්න සහ අදහස් යොමු කරන්න</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Multi-Language Dropdown Selector -->
+                <div class="relative">
+                    <select id="lang-select" onchange="changeLanguage(this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-darkbg-800 border border-slate-700 text-slate-200 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer">
+                        <option value="si">🇱🇰 සිංහල</option>
+                        <option value="en">🇬🇧 English</option>
+                        <option value="ar">🇸🇦 العربية</option>
+                        <option value="hi">🇮🇳 हिन्दी</option>
+                    </select>
+                </div>
+
+                <!-- Admin View Button -->
+                <button id="admin-toggle-btn" onclick="openAdminAuthModal()" class="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm">
+                    <i data-lucide="shield-lock" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span id="admin-btn-text">Admin</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-16 right-4 z-50 flex flex-col space-y-2 max-w-sm pointer-events-none"></div>
+
+    <!-- Main Content Area -->
+    <main class="max-w-5xl mx-auto px-4 py-6 w-full flex-grow">
+
+        <!-- ================= GUEST VIEW ================= -->
+        <div id="guest-view" class="space-y-8">
+            <!-- Question Submission Form -->
+            <section class="bg-darkbg-800 rounded-2xl p-5 sm:p-7 shadow-xl border border-slate-800 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-brand-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="border-b border-slate-700/60 pb-4 mb-5">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2" id="form-heading">
+                        <i data-lucide="send" class="w-5 h-5 text-brand-500"></i>
+                        <span>නව ප්‍රශ්නයක් යොමු කරන්න</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1" id="form-subheading">ඔබේ ප්‍රශ්නය හෝ අදහස පහතින් ඇතුළත් කරන්න.</p>
+                </div>
+
+                <form id="question-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Name Input -->
+                        <div>
+                            <label for="guest-name" class="block text-xs font-semibold text-slate-300 mb-1" id="lbl-name">ඔබේ නම (අවශ්‍ය නම් පමණක්)</label>
+                            <input type="text" id="guest-name" placeholder="Name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-darkbg-950 text-slate-100 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none transition placeholder-slate-500">
+                        </div>
+
+                        <!-- Anonymous Checkbox -->
+                        <div class="flex items-end pb-2">
+                            <label class="inline-flex items-center space-x-2 cursor-pointer text-sm text-slate-300">
+                                <input type="checkbox" id="is-anonymous" onchange="toggleAnonymous(this)" class="w-4 h-4 rounded border-slate-700 bg-darkbg-950 text-brand-600 focus:ring-brand-500">
+                                <span id="lbl-anonymous">නම නොමැතිව (Anonymous) යවන්න</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Contact Info -->
+                        <div>
+                            <label for="guest-contact" class="block text-xs font-semibold text-slate-300 mb-1" id="lbl-contact">විද්‍යුත් තැපෑල / දුරකථන (අවශ්‍ය නම් පමණක්)</label>
+                            <input type="text" id="guest-contact" placeholder="Email or Phone" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-darkbg-950 text-slate-100 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none transition placeholder-slate-500">
+                        </div>
+
+                        <!-- Category Selector -->
+                        <div>
+                            <label for="guest-category" class="block text-xs font-semibold text-slate-300 mb-1" id="lbl-category">ප්‍රවර්ගය (Category)</label>
+                            <select id="guest-category" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-darkbg-950 text-slate-100 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+                                <option value="General">General (සාමාන්‍ය)</option>
+                                <option value="Event/Meeting">Event / Meeting (උත්සව / රැස්වීම්)</option>
+                                <option value="Technical">Technical (තාක්ෂණික)</option>
+                                <option value="Feedback">Feedback (අදහස් දැක්වීම්)</option>
+                                <option value="Other">Other (වෙනත්)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Question Textarea -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="guest-question" class="block text-xs font-semibold text-slate-300" id="lbl-question">ඔබේ ප්‍රශ්නය <span class="text-rose-500">*</span></label>
+                            <span class="text-xs text-slate-500" id="char-count">0 / 300</span>
+                        </div>
+                        <textarea id="guest-question" rows="4" maxlength="300" required placeholder="ලියන්න..." oninput="updateCharCounter(this)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-darkbg-950 text-slate-100 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none transition placeholder-slate-500"></textarea>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-lg shadow-brand-600/30 active:scale-95 transition flex items-center justify-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        <span id="btn-submit">ප්‍රශ්නය යොමු කරන්න</span>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Live Community Questions Stream -->
+            <section class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2" id="public-list-title">
+                            <i data-lucide="message-circle" class="w-5 h-5 text-brand-400"></i>
+                            <span>අනෙකුත් ප්‍රශ්න (Submitted Questions)</span>
+                        </h3>
+                        <p class="text-xs text-slate-400" id="public-list-desc">වඩාත් වැදගත් යැයි සිතන ප්‍රශ්න වලට Like/Upvote කරන්න</p>
+                    </div>
+
+                    <!-- Filter Category Selector -->
+                    <select id="guest-filter-cat" onchange="renderQuestions()" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-darkbg-800 text-slate-200">
+                        <option value="ALL">All Categories</option>
+                        <option value="General">General</option>
+                        <option value="Event/Meeting">Event / Meeting</option>
+                        <option value="Technical">Technical</option>
+                        <option value="Feedback">Feedback</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <!-- Container for Streamed Questions -->
+                <div id="guest-questions-container" class="grid grid-cols-1 gap-4"></div>
+            </section>
+        </div>
+
+        <!-- ================= ADMIN VIEW DASHBOARD ================= -->
+        <div id="admin-view" class="hidden space-y-6">
+            <!-- Admin Top Controls Bar -->
+            <div class="bg-darkbg-800 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white" id="admin-title">Admin Dashboard</h2>
+                        <p class="text-xs text-slate-400" id="admin-sub">ප්‍රශ්න පාලනය සහ සමාලෝචනය</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="exportQuestions('csv')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                        <span>Export CSV</span>
+                    </button>
+
+                    <button onclick="openQRModal()" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:opacity-90 text-white transition flex items-center gap-1.5 shadow-md shadow-brand-500/20">
+                        <i data-lucide="qr-code" class="w-4 h-4"></i>
+                        <span id="btn-qr-config">QR Code & Setup</span>
+                    </button>
+
+                    <button onclick="exitAdminMode()" class="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-darkbg-950 text-slate-300 hover:bg-slate-800 transition flex items-center gap-1.5">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span>Exit Admin</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Metric Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-darkbg-800 p-4 rounded-xl border border-slate-800">
+                    <p class="text-xs text-slate-400" id="stat-lbl-total">Total Questions</p>
+                    <p class="text-2xl font-bold text-white mt-1" id="stat-total">0</p>
+                </div>
+                <div class="bg-darkbg-800 p-4 rounded-xl border border-slate-800">
+                    <p class="text-xs text-amber-400 font-medium" id="stat-lbl-pending">Pending</p>
+                    <p class="text-2xl font-bold text-amber-400 mt-1" id="stat-pending">0</p>
+                </div>
+                <div class="bg-darkbg-800 p-4 rounded-xl border border-slate-800">
+                    <p class="text-xs text-emerald-400 font-medium" id="stat-lbl-answered">Answered</p>
+                    <p class="text-2xl font-bold text-emerald-400 mt-1" id="stat-answered">0</p>
+                </div>
+                <div class="bg-darkbg-800 p-4 rounded-xl border border-slate-800">
+                    <p class="text-xs text-indigo-400 font-medium" id="stat-lbl-starred">Starred/Pinned</p>
+                    <p class="text-2xl font-bold text-indigo-400 mt-1" id="stat-starred">0</p>
+                </div>
+            </div>
+
+            <!-- Admin Filters & Search Tool -->
+            <div class="bg-darkbg-800 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row gap-3 justify-between items-center">
+                <div class="relative w-full sm:w-72">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                    <input type="text" id="admin-search" oninput="renderQuestions()" placeholder="Search questions..." class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-700 bg-darkbg-950 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <select id="admin-status-filter" onchange="renderQuestions()" class="text-xs px-3 py-2 rounded-lg border border-slate-700 bg-darkbg-950 text-slate-200">
+                        <option value="ALL">Status: All</option>
+                        <option value="PENDING">Pending Only</option>
+                        <option value="ANSWERED">Answered Only</option>
+                        <option value="STARRED">Starred Only</option>
+                    </select>
+
+                    <select id="admin-cat-filter" onchange="renderQuestions()" class="text-xs px-3 py-2 rounded-lg border border-slate-700 bg-darkbg-950 text-slate-200">
+                        <option value="ALL">Category: All</option>
+                        <option value="General">General</option>
+                        <option value="Event/Meeting">Event / Meeting</option>
+                        <option value="Technical">Technical</option>
+                        <option value="Feedback">Feedback</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Admin Questions Stream Container -->
+            <div id="admin-questions-container" class="space-y-3"></div>
+        </div>
+
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="bg-darkbg-900 border-t border-slate-800 py-4 mt-8 transition-colors">
+        <div class="max-w-5xl mx-auto px-4 text-center text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span>&copy; Real-time Guest Q&A Tool</span>
+            <span class="font-medium text-slate-300">Design by <span class="text-brand-400 font-bold">Kalatu</span></span>
+        </div>
+    </footer>
+
+    <!-- Admin Authentication Modal -->
+    <div id="admin-auth-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-darkbg-800 rounded-2xl max-w-sm w-full p-6 border border-slate-700 shadow-2xl relative">
+            <button onclick="closeAdminAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="text-center mb-5">
+                <div class="w-12 h-12 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="key-round" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white">Admin Authentication</h3>
+                <p class="text-xs text-slate-400 mt-1">කරුණාකර මුරපදය (Passcode) ඇතුළත් කරන්න. (Default: 1234)</p>
+            </div>
+            <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                <div>
+                    <input type="password" id="admin-passcode" placeholder="Enter PIN (1234)" required class="w-full px-4 py-2.5 rounded-xl border border-slate-700 bg-darkbg-950 text-center text-lg tracking-widest text-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition shadow-lg shadow-brand-600/30">
+                    Login Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- FIXED QR CODE CONFIGURATION MODAL -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-darkbg-800 rounded-2xl max-w-lg w-full p-6 border border-slate-700 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="text-center mb-4">
+                <h3 class="text-lg font-bold text-white">Event QR Code & Host Link Setup</h3>
+                <p class="text-xs text-slate-400 mt-1">ගෙස්ටලාට App එක ඕපන් වෙන්න, මෙතනට ඔබේ Public Host URL එක ඇතුළත් කරන්න.</p>
+            </div>
+
+            <!-- PUBLIC HOST URL CONFIGURATION FORM -->
+            <div class="bg-darkbg-950 p-3.5 rounded-xl border border-slate-700 mb-5 text-left">
+                <label for="public-url-input" class="block text-xs font-semibold text-brand-300 mb-1 flex items-center gap-1">
+                    <i data-lucide="link" class="w-3.5 h-3.5"></i>
+                    <span>Public Web URL / Live Domain Link:</span>
+                </label>
+                <div class="flex gap-2">
+                    <input type="url" id="public-url-input" oninput="updateQRCodeFromInput()" placeholder="https://yourname.github.io/app" class="flex-1 px-3 py-2 rounded-lg border border-slate-700 bg-darkbg-800 text-xs text-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    <button onclick="setDomainToCurrentLocation()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs rounded-lg transition font-medium" title="Use current browser URL">
+                        Detect URL
+                    </button>
+                </div>
+                <p class="text-[11px] text-amber-400/90 mt-2 leading-snug">
+                    ⚠️ <strong>වැදගත්:</strong> QR code එක Scan කල විට Guest ට App එක ඕපන් වීමට නම් Vercel, Netlify හෝ GitHub Pages වල Host කළ පසු ලැබෙන Link එක මෙතැනට ඇතුළත් කරන්න.
+                </p>
+            </div>
+
+            <!-- PRINTABLE POSTER CONTAINER -->
+            <div id="printable-poster-area" class="bg-white text-slate-900 p-6 rounded-2xl border border-slate-200 text-center my-3">
+                <div class="flex justify-center mb-2">
+                    <div class="p-2 bg-indigo-50 rounded-xl text-brand-600">
+                        <i data-lucide="qr-code" class="w-8 h-8"></i>
+                    </div>
+                </div>
+                <h2 class="text-2xl font-black tracking-tight text-slate-900 mb-1">SCAN TO ASK QUESTIONS</h2>
+                <p class="text-xs text-slate-600 font-medium mb-4">ඔබගේ ජංගම දුරකථනයෙන් ස්කෑන් කර ප්‍රශ්න යොමු කරන්න</p>
+                
+                <div class="bg-white p-3 rounded-xl border-2 border-dashed border-slate-300 inline-block mb-3 shadow-inner">
+                    <div id="qrcode-canvas" class="flex justify-center items-center min-w-[200px] min-h-[200px]"></div>
+                </div>
+
+                <p class="text-[11px] font-mono text-slate-500 break-all max-w-xs mx-auto" id="qr-target-url-display"></p>
+                <div class="mt-4 pt-3 border-t border-slate-200 text-[10px] text-slate-400 font-medium">
+                    Live Q&A Portal • Design by Kalatu
+                </div>
+            </div>
+
+            <!-- QR Action Buttons -->
+            <div class="grid grid-cols-2 gap-3 mt-4">
+                <button onclick="downloadQRCode()" class="px-4 py-2.5 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white transition flex items-center justify-center gap-2 shadow-md shadow-brand-600/30">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Download QR Image</span>
+                </button>
+                <button onclick="printPoster()" class="px-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 text-slate-900 hover:bg-white transition flex items-center justify-center gap-2 shadow-md">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span>Print Poster</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic Script -->
+    <script>
+        // Initial Seed Questions
+        const INITIAL_QUESTIONS = [
+            {
+                id: 'q1',
+                name: 'නිමල් දිසානායක',
+                contact: 'nimal@gmail.com',
+                category: 'General',
+                question: 'අද පැවැත්වෙන මෙම වැඩමුළුවේ පටිගත කළ වීඩියෝ පසුව ලබා ගැනීමට ක්‍රමවේදයක් තිබේද?',
+                likes: 8,
+                timestamp: Date.now() - 3600000 * 2,
+                status: 'ANSWERED',
+                isStarred: true,
+                isAnonymous: false
+            },
+            {
+                id: 'q2',
+                name: 'Anonymous',
+                contact: '',
+                category: 'Technical',
+                question: 'Can we receive the presentation slides and resource links via email after the event?',
+                likes: 5,
+                timestamp: Date.now() - 3600000 * 1,
+                status: 'PENDING',
+                isStarred: false,
+                isAnonymous: true
+            }
+        ];
+
+        // Global State
+        let questions = [];
+        let currentLang = 'si';
+        let isAdmin = false;
+        const ADMIN_PIN = "1234";
+        let configuredHostUrl = "";
+
+        // Multi-Language Translation Map
+        const i18n = {
+            si: {
+                title: "Guest Mode",
+                subtitle: "ප්‍රශ්න සහ අදහස් යොමු කරන්න",
+                formHeading: "නව ප්‍රශ්නයක් යොමු කරන්න",
+                formSubheading: "ඔබේ ප්‍රශ්නය හෝ අදහස පහතින් ඇතුළත් කරන්න.",
+                lblName: "ඔබේ නම (අවශ්‍ය නම් පමණක්)",
+                lblAnonymous: "නම නොමැතිව (Anonymous) යවන්න",
+                lblContact: "විද්‍යුත් තැපෑල / දුරකථන (අවශ්‍ය නම් පමණක්)",
+                lblCategory: "ප්‍රවර්ගය (Category)",
+                lblQuestion: "ඔබේ ප්‍රශ්නය",
+                placeholderQuestion: "ඔබට දැනගැනීමට අවශ්‍ය දේ පැහැදිලිව මෙහි ලියන්න...",
+                btnSubmit: "ප්‍රශ්නය යොමු කරන්න",
+                publicListTitle: "අනෙකුත් ප්‍රශ්න (Submitted Questions)",
+                publicListDesc: "වඩාත් වැදගත් යැයි සිතන ප්‍රශ්න වලට Like/Upvote කරන්න",
+                successToast: "ඔබේ ප්‍රශ්නය සාර්ථකව යොමු කරන ලදී!",
+                anonymousUser: "නොදන්නා අයෙකි (Anonymous)",
+                dir: "ltr"
+            },
+            en: {
+                title: "Guest Mode",
+                subtitle: "Submit your questions and ideas",
+                formHeading: "Submit a New Question",
+                formSubheading: "Please enter your question or feedback below.",
+                lblName: "Your Name (Optional)",
+                lblAnonymous: "Submit Anonymously",
+                lblContact: "Email / Phone Number (Optional)",
+                lblCategory: "Category",
+                lblQuestion: "Your Question",
+                placeholderQuestion: "Write your question clearly here...",
+                btnSubmit: "Submit Question",
+                publicListTitle: "Submitted Questions",
+                publicListDesc: "Upvote questions you find important",
+                successToast: "Your question was submitted successfully!",
+                anonymousUser: "Anonymous Guest",
+                dir: "ltr"
+            },
+            ar: {
+                title: "وضع الضيف",
+                subtitle: "أرسل أسئلتك وملاحظاتك",
+                formHeading: "إرسال سؤال جديد",
+                formSubheading: "يرجى إدخال سؤالك أو ملاحظاتك أدناه.",
+                lblName: "اسمك (اختياري)",
+                lblAnonymous: "إرسال مجهول",
+                lblContact: "البريد الإلكتروني / الهاتف (اختياري)",
+                lblCategory: "الفئة",
+                lblQuestion: "سؤالك",
+                placeholderQuestion: "اكتب سؤالك بوضوح هنا...",
+                btnSubmit: "إرسال السؤال",
+                publicListTitle: "الأسئلة المُرسلة",
+                publicListDesc: "قم بالتصويت للأسئلة التي تراها مهمة",
+                successToast: "تم إرسال سؤالك بنجاح!",
+                anonymousUser: "ضيف مجهول",
+                dir: "rtl"
+            },
+            hi: {
+                title: "गेस्ट मोड",
+                subtitle: "अपने प्रश्न और विचार सबमिट करें",
+                formHeading: "नया प्रश्न पूछें",
+                formSubheading: "कृपया अपना प्रश्न या प्रतिक्रिया नीचे दर्ज करें।",
+                lblName: "आपका नाम (वैकल्पिक)",
+                lblAnonymous: "गुमनाम रूप से भेजें",
+                lblContact: "ईमेल / फोन नंबर (वैकल्पिक)",
+                lblCategory: "श्रेणी",
+                lblQuestion: "आपका प्रश्न",
+                placeholderQuestion: "अपना प्रश्न यहां स्पष्ट रूप से लिखें...",
+                btnSubmit: "प्रश्न सबमिट करें",
+                publicListTitle: "सबमिट किए गए प्रश्न",
+                publicListDesc: "महत्वपूर्ण प्रश्नों को अपवोट करें",
+                successToast: "आपका प्रश्न सफलतापूर्वक सबमिट हो गया!",
+                anonymousUser: "अज्ञात अतिथि",
+                dir: "ltr"
+            }
+        };
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            loadQuestions();
+            setupHostUrlDefault();
+            changeLanguage('si');
+            renderQuestions();
+            lucide.createIcons();
+        });
+
+        // Initialize Host URL
+        function setupHostUrlDefault() {
+            const savedUrl = localStorage.getItem('guest_qa_host_url');
+            if (savedUrl) {
+                configuredHostUrl = savedUrl;
+            } else {
+                configuredHostUrl = window.location.href;
+            }
+            document.getElementById('public-url-input').value = configuredHostUrl;
+        }
+
+        function setDomainToCurrentLocation() {
+            configuredHostUrl = window.location.href;
+            document.getElementById('public-url-input').value = configuredHostUrl;
+            localStorage.setItem('guest_qa_host_url', configuredHostUrl);
+            generateQRCode();
+            showToast("Host URL set to current location!", "info");
+        }
+
+        // Storage Management
+        function loadQuestions() {
+            const stored = localStorage.getItem('guest_qa_questions');
+            if (stored) {
+                try { questions = JSON.parse(stored); } catch (e) { questions = INITIAL_QUESTIONS; }
+            } else {
+                questions = INITIAL_QUESTIONS;
+                saveQuestions();
+            }
+        }
+
+        function saveQuestions() {
+            localStorage.setItem('guest_qa_questions', JSON.stringify(questions));
+        }
+
+        // Language Selector Handler
+        function changeLanguage(langKey) {
+            currentLang = langKey;
+            const t = i18n[currentLang];
+            document.documentElement.setAttribute('dir', t.dir);
+            
+            document.getElementById('nav-subtitle').innerText = t.subtitle;
+            document.getElementById('form-heading').querySelector('span').innerText = t.formHeading;
+            document.getElementById('form-subheading').innerText = t.formSubheading;
+            document.getElementById('lbl-name').innerText = t.lblName;
+            document.getElementById('lbl-anonymous').innerText = t.lblAnonymous;
+            document.getElementById('lbl-contact').innerText = t.lblContact;
+            document.getElementById('lbl-category').innerText = t.lblCategory;
+            document.getElementById('lbl-question').childNodes[0].textContent = t.lblQuestion + " ";
+            document.getElementById('guest-question').placeholder = t.placeholderQuestion;
+            document.getElementById('btn-submit').innerText = t.btnSubmit;
+            document.getElementById('public-list-title').querySelector('span').innerText = t.publicListTitle;
+            document.getElementById('public-list-desc').innerText = t.publicListDesc;
+
+            renderQuestions();
+        }
+
+        // Form Control Handlers
+        function toggleAnonymous(checkbox) {
+            const nameInput = document.getElementById('guest-name');
+            if (checkbox.checked) {
+                nameInput.value = '';
+                nameInput.disabled = true;
+                nameInput.classList.add('opacity-50');
+            } else {
+                nameInput.disabled = false;
+                nameInput.classList.remove('opacity-50');
+            }
+        }
+
+        function updateCharCounter(textarea) {
+            document.getElementById('char-count').innerText = `${textarea.value.length} / 300`;
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const questionText = document.getElementById('guest-question').value.trim();
+            if (!questionText) return;
+
+            const isAnon = document.getElementById('is-anonymous').checked;
+            const nameVal = isAnon ? 'Anonymous' : (document.getElementById('guest-name').value.trim() || 'Anonymous');
+            const contactVal = document.getElementById('guest-contact').value.trim();
+            const categoryVal = document.getElementById('guest-category').value;
+
+            const newQ = {
+                id: 'q_' + Date.now(),
+                name: nameVal,
+                contact: contactVal,
+                category: categoryVal,
+                question: questionText,
+                likes: 0,
+                timestamp: Date.now(),
+                status: 'PENDING',
+                isStarred: false,
+                isAnonymous: isAnon
+            };
+
+            questions.unshift(newQ);
+            saveQuestions();
+            renderQuestions();
+
+            document.getElementById('question-form').reset();
+            document.getElementById('guest-name').disabled = false;
+            document.getElementById('guest-name').classList.remove('opacity-50');
+            document.getElementById('char-count').innerText = "0 / 300";
+
+            showToast(i18n[currentLang].successToast, 'success');
+        }
+
+        function likeQuestion(id) {
+            const q = questions.find(item => item.id === id);
+            if (q) {
+                const votedKey = `voted_${id}`;
+                if (sessionStorage.getItem(votedKey)) {
+                    showToast('You already upvoted this question!', 'info');
+                    return;
+                }
+                q.likes += 1;
+                sessionStorage.setItem(votedKey, 'true');
+                saveQuestions();
+                renderQuestions();
+            }
+        }
+
+        // Render Questions Stream
+        function renderQuestions() {
+            if (isAdmin) {
+                renderAdminQuestions();
+                updateAdminStats();
+            } else {
+                renderGuestQuestions();
+            }
+            lucide.createIcons();
+        }
+
+        function renderGuestQuestions() {
+            const container = document.getElementById('guest-questions-container');
+            const categoryFilter = document.getElementById('guest-filter-cat').value;
+
+            let filtered = questions.filter(q => categoryFilter === 'ALL' || q.category === categoryFilter);
+
+            filtered.sort((a, b) => {
+                if (b.isStarred !== a.isStarred) return b.isStarred - a.isStarred;
+                if (b.likes !== a.likes) return b.likes - a.likes;
+                return b.timestamp - a.timestamp;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 bg-darkbg-800 rounded-xl border border-dashed border-slate-800">
+                        <i data-lucide="inbox" class="w-10 h-10 text-slate-500 mx-auto mb-2"></i>
+                        <p class="text-slate-400 text-xs">තවම ප්‍රශ්න නොමැත. (No questions yet).</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(q => {
+                const isVoted = sessionStorage.getItem(`voted_${q.id}`);
+                const dateStr = new Date(q.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const displayName = q.isAnonymous ? (i18n[currentLang].anonymousUser) : q.name;
+
+                return `
+                    <div class="bg-darkbg-800 p-5 rounded-2xl border ${q.isStarred ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-800'} shadow-lg transition">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="flex-1">
+                                <div class="flex flex-wrap items-center gap-2 mb-2">
+                                    ${q.isStarred ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full flex items-center gap-1"><i data-lucide="star" class="w-3 h-3 fill-amber-400"></i> Starred</span>` : ''}
+                                    <span class="px-2.5 py-0.5 text-[11px] font-semibold bg-brand-900/50 text-brand-300 border border-brand-700/40 rounded-lg">${q.category}</span>
+                                    <span class="text-xs text-slate-500">${dateStr}</span>
+                                    ${q.status === 'ANSWERED' ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Answered</span>` : ''}
+                                </div>
+                                <p class="text-slate-100 text-sm sm:text-base font-medium leading-relaxed">${escapeHtml(q.question)}</p>
+                                <div class="mt-3 text-xs text-slate-400 flex items-center gap-1">
+                                    <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                                    <span>${escapeHtml(displayName)}</span>
+                                </div>
+                            </div>
+
+                            <button onclick="likeQuestion('${q.id}')" class="flex flex-col items-center justify-center p-2.5 rounded-xl border ${isVoted ? 'bg-brand-900/60 border-brand-500 text-brand-300' : 'border-slate-700 hover:bg-slate-800 text-slate-400'} transition active:scale-90">
+                                <i data-lucide="thumbs-up" class="w-4 h-4 ${isVoted ? 'fill-brand-400' : ''}"></i>
+                                <span class="text-xs font-bold mt-1">${q.likes}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAdminQuestions() {
+            const container = document.getElementById('admin-questions-container');
+            const searchVal = document.getElementById('admin-search').value.toLowerCase();
+            const statusFilter = document.getElementById('admin-status-filter').value;
+            const categoryFilter = document.getElementById('admin-cat-filter').value;
+
+            let filtered = questions.filter(q => {
+                const matchesSearch = q.question.toLowerCase().includes(searchVal) || q.name.toLowerCase().includes(searchVal);
+                const matchesCat = categoryFilter === 'ALL' || q.category === categoryFilter;
+                
+                let matchesStatus = true;
+                if (statusFilter === 'PENDING') matchesStatus = q.status === 'PENDING';
+                if (statusFilter === 'ANSWERED') matchesStatus = q.status === 'ANSWERED';
+                if (statusFilter === 'STARRED') matchesStatus = q.isStarred === true;
+
+                return matchesSearch && matchesCat && matchesStatus;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 bg-darkbg-800 rounded-xl border border-slate-800 text-slate-400 text-xs">No matching questions found.</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(q => {
+                const dateStr = new Date(q.timestamp).toLocaleString();
+                return `
+                    <div class="bg-darkbg-800 p-4 rounded-xl border ${q.isStarred ? 'border-amber-500/50' : 'border-slate-800'} flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div class="flex-1 space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="px-2 py-0.5 text-[10px] font-bold rounded ${q.status === 'ANSWERED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">${q.status}</span>
+                                <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-300 rounded">${q.category}</span>
+                                <span class="text-xs text-slate-500">${dateStr}</span>
+                            </div>
+                            <p class="text-sm font-medium text-white">${escapeHtml(q.question)}</p>
+                            <div class="text-xs text-slate-400 flex flex-wrap gap-3">
+                                <span><strong>From:</strong> ${escapeHtml(q.name)} ${q.isAnonymous ? '(Anon)' : ''}</span>
+                                ${q.contact ? `<span><strong>Contact:</strong> ${escapeHtml(q.contact)}</span>` : ''}
+                                <span><strong>Upvotes:</strong> ${q.likes}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 self-end md:self-center">
+                            <button onclick="toggleStarQuestion('${q.id}')" title="Highlight/Pin" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 ${q.isStarred ? 'text-amber-400' : 'text-slate-400'}">
+                                <i data-lucide="star" class="w-4 h-4 ${q.isStarred ? 'fill-amber-400' : ''}"></i>
+                            </button>
+
+                            <button onclick="toggleAnsweredStatus('${q.id}')" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${q.status === 'ANSWERED' ? 'bg-slate-700 text-slate-200' : 'bg-emerald-600 text-white'} hover:opacity-90 transition">
+                                ${q.status === 'ANSWERED' ? 'Mark Pending' : 'Mark Answered'}
+                            </button>
+
+                            <button onclick="deleteQuestion('${q.id}')" class="p-2 rounded-lg border border-slate-700 text-rose-400 hover:bg-rose-950/40 transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateAdminStats() {
+            document.getElementById('stat-total').innerText = questions.length;
+            document.getElementById('stat-pending').innerText = questions.filter(q => q.status === 'PENDING').length;
+            document.getElementById('stat-answered').innerText = questions.filter(q => q.status === 'ANSWERED').length;
+            document.getElementById('stat-starred').innerText = questions.filter(q => q.isStarred).length;
+        }
+
+        // Admin Actions
+        function toggleStarQuestion(id) {
+            const q = questions.find(item => item.id === id);
+            if (q) { q.isStarred = !q.isStarred; saveQuestions(); renderQuestions(); }
+        }
+
+        function toggleAnsweredStatus(id) {
+            const q = questions.find(item => item.id === id);
+            if (q) { q.status = q.status === 'ANSWERED' ? 'PENDING' : 'ANSWERED'; saveQuestions(); renderQuestions(); }
+        }
+
+        function deleteQuestion(id) {
+            if (confirm("ඔබට මෙම ප්‍රශ්නය ඉවත් කිරීමට අවශ්‍යද?")) {
+                questions = questions.filter(q => q.id !== id);
+                saveQuestions();
+                renderQuestions();
+                showToast("ප්‍රශ්නය ඉවත් කරන ලදී", 'info');
+            }
+        }
+
+        // Auth Controls
+        function openAdminAuthModal() {
+            if (isAdmin) { exitAdminMode(); } 
+            else { document.getElementById('admin-auth-modal').classList.remove('hidden'); }
+        }
+
+        function closeAdminAuthModal() {
+            document.getElementById('admin-auth-modal').classList.add('hidden');
+            document.getElementById('admin-passcode').value = '';
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            if (document.getElementById('admin-passcode').value === ADMIN_PIN) {
+                isAdmin = true;
+                closeAdminAuthModal();
+                document.getElementById('guest-view').classList.add('hidden');
+                document.getElementById('admin-view').classList.remove('hidden');
+                document.getElementById('mode-badge').innerText = "Admin Mode";
+                document.getElementById('admin-btn-text').innerText = "Exit Admin";
+                renderQuestions();
+                showToast("Admin access granted!", "success");
+            } else {
+                showToast("Invalid PIN! (Use 1234)", "error");
+            }
+        }
+
+        function exitAdminMode() {
+            isAdmin = false;
+            document.getElementById('admin-view').classList.add('hidden');
+            document.getElementById('guest-view').classList.remove('hidden');
+            document.getElementById('mode-badge').innerText = "Guest Mode";
+            document.getElementById('admin-btn-text').innerText = "Admin";
+            renderQuestions();
+        }
+
+        // DYNAMIC QR CODE GENERATOR LOGIC
+        function openQRModal() {
+            document.getElementById('qr-modal').classList.remove('hidden');
+            generateQRCode();
+        }
+
+        function closeQRModal() {
+            document.getElementById('qr-modal').classList.add('hidden');
+        }
+
+        function updateQRCodeFromInput() {
+            const inputVal = document.getElementById('public-url-input').value.trim();
+            if (inputVal) {
+                configuredHostUrl = inputVal;
+                localStorage.setItem('guest_qa_host_url', configuredHostUrl);
+                generateQRCode();
+            }
+        }
+
+        function generateQRCode() {
+            const qrContainer = document.getElementById('qrcode-canvas');
+            qrContainer.innerHTML = '';
+            
+            const targetUrl = configuredHostUrl || window.location.href;
+            document.getElementById('qr-target-url-display').innerText = targetUrl;
+
+            try {
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(qrContainer, {
+                        text: targetUrl,
+                        width: 200,
+                        height: 200,
+                        colorDark : "#0f172a",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H
+                    });
+                } else {
+                    throw new Error("QRCode library fallback needed");
+                }
+            } catch (err) {
+                const encoded = encodeURIComponent(targetUrl);
+                const img = document.createElement('img');
+                img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
+                img.className = "w-48 h-48 rounded-md";
+                qrContainer.appendChild(img);
+            }
+        }
+
+        function downloadQRCode() {
+            const container = document.getElementById('qrcode-canvas');
+            const canvas = container.querySelector('canvas');
+            const img = container.querySelector('img');
+
+            let imageSrc = '';
+            if (canvas) imageSrc = canvas.toDataURL("image/png");
+            else if (img) imageSrc = img.src;
+
+            if (imageSrc) {
+                const a = document.createElement('a');
+                a.href = imageSrc;
+                a.download = `Guest_QA_QR_Code.png`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                showToast("QR Code downloaded!", "success");
+            }
+        }
+
+        function printPoster() {
+            window.print();
+        }
+
+        // Export Data Function
+        function exportQuestions(format) {
+            if (format === 'csv') {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "ID,Name,Contact,Category,Question,Likes,Status,Starred,Timestamp\n";
+                questions.forEach(q => {
+                    const row = [
+                        q.id,
+                        `"${q.name.replace(/"/g, '""')}"`,
+                        `"${q.contact.replace(/"/g, '""')}"`,
+                        `"${q.category}"`,
+                        `"${q.question.replace(/"/g, '""')}"`,
+                        q.likes,
+                        q.status,
+                        q.isStarred,
+                        `"${new Date(q.timestamp).toISOString()}"`
+                    ].join(",");
+                    csvContent += row + "\n";
+                });
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `guest_questions_${Date.now()}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }
+        }
+
+        // Toast Feedback System
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-800 text-white border border-slate-700";
+            if (type === 'success') bgClass = "bg-emerald-600 text-white";
+            if (type === 'error') bgClass = "bg-rose-600 text-white";
+            if (type === 'info') bgClass = "bg-brand-600 text-white";
+
+            toast.className = `p-3.5 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 pointer-events-auto transform transition-all duration-300 opacity-0 -translate-y-2 ${bgClass}`;
+            toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', '-translate-y-2');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
